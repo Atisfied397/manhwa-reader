@@ -9,11 +9,11 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NyxReader - Read Comics, Manga, Manhua & Manhwa Online",
-  description: "Immerse Yourself in Comics, Manga, Manhua, and Manhwa — NyxReader: Where Stories Come to Life.",
+  title: "Manhwa Reader - Read Comics, Manga, Manhua & Manhwa Online",
+  description: "Immerse Yourself in Comics, Manga, Manhua, and Manhwa — Manhwa Reader: Where Stories Come to Life.",
   other: { "keywords": "manhwa, manga, webtoon, comics, novels, read online" },
   openGraph: {
-    title: "NyxReader - Read Comics, Manga, Manhua & Manhwa Online",
+    title: "Manhwa Reader - Read Comics, Manga, Manhua & Manhwa Online",
     description: "Immerse Yourself in Comics, Manga, Manhua, and Manhwa.",
     type: "website",
   },

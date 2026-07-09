@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} NyxReader. All Rights Reserved. v1.0.0
+            &copy; {new Date().getFullYear()} Manhwa Reader. All Rights Reserved. v1.0.0
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="text-xs text-muted-foreground transition-colors hover:text-foreground">

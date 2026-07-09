@@ -8,6 +8,7 @@ function detectSourceFromUrl(urlStr: string): string {
     if (hostname.includes("asurascans")) return "asurascans";
     if (hostname.includes("asuracomic")) return "asura";
     if (hostname.includes("nyxscans")) return "nyx";
+    if (hostname.includes("mangaplus")) return "mangaplus";
   } catch { /* ignore */ }
   return "asurascans";
 }

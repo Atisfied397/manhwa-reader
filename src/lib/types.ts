@@ -36,6 +36,8 @@ export interface ScrapedSeries {
   author?: string;
   artist?: string;
   genres?: string[];
+  source?: string;
+  sourceUrl?: string;
 }
 
 export interface ScrapedChapter {
