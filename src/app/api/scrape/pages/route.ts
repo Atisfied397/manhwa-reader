@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
-import { loadScraper } from "@/lib/scraper";
+import { loadScraper, nyxScansScraper, asuraScansScraper, comixToScraper, hivetoonsScraper, mantaScraper } from "@/lib/scraper";
 import type { Scraper } from "@/lib/scraper";
+
+const allScrapers: Scraper[] = [
+  nyxScansScraper,
+  asuraScansScraper,
+  comixToScraper,
+  hivetoonsScraper,
+  mantaScraper,
+];
 
 export async function GET(request: Request) {
   try {
@@ -16,10 +24,37 @@ export async function GET(request: Request) {
       );
     }
 
-    const scraper: Scraper = loadScraper(source);
-    const pages = await scraper.getChapterPages(slug, chapter);
+    const primary: Scraper = loadScraper(source);
+    const triedSources = new Set<string>();
+    triedSources.add(primary.id);
+    let lastError = "";
 
-    return NextResponse.json({ pages });
+    try {
+      const pages = await primary.getChapterPages(slug, chapter);
+      if (pages.length > 0) {
+        return NextResponse.json({ pages });
+      }
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : "Unknown error";
+    }
+
+    for (const alt of allScrapers) {
+      if (triedSources.has(alt.id)) continue;
+      triedSources.add(alt.id);
+      try {
+        const pages = await alt.getChapterPages(slug, chapter);
+        if (pages.length > 0) {
+          return NextResponse.json({ pages, source: alt.id });
+        }
+      } catch {
+        // try next
+      }
+    }
+
+    return NextResponse.json(
+      { error: `Failed to load chapter pages${lastError ? `: ${lastError}` : ""}` },
+      { status: 500 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(

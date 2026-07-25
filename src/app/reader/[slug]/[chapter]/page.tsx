@@ -1,14 +1,25 @@
 "use client";
 
-import { use, useState, useEffect, useCallback, useRef } from "react";
+import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 interface ReaderPageProps {
   params: Promise<{ slug: string; chapter: string }>;
 }
 
 export default function ReaderPage({ params }: ReaderPageProps) {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>}>
+      <ReaderPageInner params={params} />
+    </Suspense>
+  );
+}
+
+function ReaderPageInner({ params }: ReaderPageProps) {
   const { slug, chapter } = use(params);
+  const searchParams = useSearchParams();
+  const source = searchParams.get("source") ?? "nyx";
   const chapterNum = chapter.replace("chapter-", "");
   const [pages, setPages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +37,7 @@ export default function ReaderPage({ params }: ReaderPageProps) {
     setLoading(true);
     setError("");
     setPages([]);
-    fetch(`/api/scrape/pages?slug=${encodeURIComponent(slug)}&chapter=${encodeURIComponent(chapter)}&source=nyx`)
+    fetch(`/api/scrape/pages?slug=${encodeURIComponent(slug)}&chapter=${encodeURIComponent(chapter)}&source=${source}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) {
@@ -40,11 +51,11 @@ export default function ReaderPage({ params }: ReaderPageProps) {
         setError("Failed to load chapter pages");
         setLoading(false);
       });
-  }, [slug, chapter]);
+  }, [slug, chapter, source]);
 
   // Fetch series info for title and chapter list
   useEffect(() => {
-    fetch(`/api/scrape?slug=${encodeURIComponent(slug)}&source=nyx`)
+    fetch(`/api/scrape?slug=${encodeURIComponent(slug)}&source=${source}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.series) {
@@ -61,7 +72,7 @@ export default function ReaderPage({ params }: ReaderPageProps) {
         }
       })
       .catch(() => {});
-  }, [slug]);
+  }, [slug, source]);
 
   const titleSlug = slug.replace(/-/g, " ");
   const prevChapter = parseInt(chapterNum) > 1 ? `chapter-${parseInt(chapterNum) - 1}` : null;

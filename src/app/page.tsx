@@ -53,7 +53,7 @@ function SourceBadge({ source, sourceUrl }: { source?: string; sourceUrl?: strin
   if (!source) return null;
   const colors = sourceColors[source] ?? { bg: "bg-gray-500/20", text: "text-gray-400", label: source };
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     e.preventDefault();
     if (sourceUrl) window.open(sourceUrl, "_blank", "noopener,noreferrer");
@@ -430,7 +430,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
-            {popular.slice(0, 7).map((series) => (
+            {popular.filter((s) => s.type === "Novel").slice(0, 7).map((series) => (
               <Link
                 key={`novel-${series.slug}`}
                 href={`/series/${series.slug}?source=${series.source || "nyx"}`}

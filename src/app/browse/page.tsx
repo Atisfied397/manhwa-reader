@@ -9,6 +9,8 @@ interface ComicItem {
   coverUrl: string;
   rating: number;
   type: string;
+  source?: string;
+  sourceUrl?: string;
 }
 
 export default function BrowsePage() {
@@ -43,7 +45,7 @@ export default function BrowsePage() {
           {comics.map((comic) => (
             <Link
               key={comic.slug}
-              href={`/series/${comic.slug}`}
+              href={`/series/${comic.slug}?source=${comic.source || "nyx"}`}
               className="group flex flex-col overflow-hidden rounded-lg bg-card transition-all hover:bg-card-hover"
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">

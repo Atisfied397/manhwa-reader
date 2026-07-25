@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
+import AuthProvider from "@/components/AuthProvider";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <AuthProvider>
       <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}>
         <body className="flex min-h-full flex-col">
           <Header />
@@ -29,6 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Footer />
         </body>
       </html>
-    </ClerkProvider>
+    </AuthProvider>
   );
 }

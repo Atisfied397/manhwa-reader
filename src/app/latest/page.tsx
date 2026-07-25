@@ -7,7 +7,7 @@ interface ReleaseChapter {
   number: string; slug: string; time: string; isNew: boolean;
 }
 interface LatestRelease {
-  title: string; slug: string; rating: number; coverUrl: string; status: string; type: string; chapters: ReleaseChapter[];
+  title: string; slug: string; rating: number; coverUrl: string; status: string; type: string; chapters: ReleaseChapter[]; source?: string;
 }
 
 export default function LatestPage() {
@@ -51,7 +51,7 @@ export default function LatestPage() {
               key={release.slug}
               className="flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-card-hover"
             >
-              <Link href={`/series/${release.slug}`} className="h-[80px] w-[56px] shrink-0 overflow-hidden rounded">
+              <Link href={`/series/${release.slug}?source=${release.source || "nyx"}`} className="h-[80px] w-[56px] shrink-0 overflow-hidden rounded">
                 {release.coverUrl ? (
                   <img src={release.coverUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
@@ -60,7 +60,7 @@ export default function LatestPage() {
               </Link>
               <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
                 <div className="flex items-center gap-2">
-                  <Link href={`/series/${release.slug}`} className="text-sm font-semibold text-foreground hover:text-primary">
+                  <Link href={`/series/${release.slug}?source=${release.source || "nyx"}`} className="text-sm font-semibold text-foreground hover:text-primary">
                     {release.title}
                   </Link>
                   <span className="flex items-center gap-1 text-xs text-star">
@@ -74,7 +74,7 @@ export default function LatestPage() {
                   {release.chapters.slice(0, 4).map((ch) => (
                     <Link
                       key={ch.slug}
-                      href={`/reader/${release.slug}/${ch.slug}`}
+                      href={`/reader/${release.slug}/${ch.slug}?source=${release.source || "nyx"}`}
                       className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
                     >
                       <span>Chapter {ch.number}</span>

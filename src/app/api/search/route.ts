@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server";
-
-const popularSeries = [
-  { id: 1, title: "Solo Leveling", slug: "solo-leveling", coverUrl: "", rating: 4.8, genres: ["Action", "Fantasy"], status: "completed" },
-  { id: 2, title: "The Beginning After The End", slug: "the-beginning-after-the-end", coverUrl: "", rating: 4.7, genres: ["Action", "Fantasy", "Isekai"], status: "ongoing" },
-  { id: 3, title: "Omniscient Reader's Viewpoint", slug: "omniscient-readers-viewpoint", coverUrl: "", rating: 4.6, genres: ["Action", "Fantasy", "Thriller"], status: "ongoing" },
-  { id: 4, title: "Nano Machine", slug: "nano-machine", coverUrl: "", rating: 4.5, genres: ["Action", "Martial Arts"], status: "ongoing" },
-  { id: 5, title: "Return of the Mount Hua Sect", slug: "return-of-the-mount-hua-sect", coverUrl: "", rating: 4.6, genres: ["Martial Arts", "Comedy"], status: "ongoing" },
-  { id: 6, title: "The Max-Level Player's 100th Regression", slug: "max-level-player-100th-regression", coverUrl: "", rating: 4.4, genres: ["Action", "Fantasy"], status: "ongoing" },
-];
+import { getAllComics, fuzzyMatch } from "@/lib/comics";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.toLowerCase() ?? "";
 
+  const comics = await getAllComics();
+
   if (!query) {
-    return NextResponse.json(popularSeries);
+    return NextResponse.json(comics.slice(0, 20));
   }
 
-  const results = popularSeries.filter(
-    (s) =>
-      s.title.toLowerCase().includes(query) ||
-      s.genres.some((g) => g.toLowerCase().includes(query))
-  );
+  const words = query.split(/\s+/).filter(Boolean);
+
+  const results = comics.filter((s) => {
+    const haystack = [s.title, s.type, s.slug].join(" ").toLowerCase();
+    return words.every((w) => haystack.includes(w)) || fuzzyMatch(words, haystack);
+  });
+  results.sort((a, b) => {
+    const aExact = words.every((w) => a.title.toLowerCase().includes(w));
+    const bExact = words.every((w) => b.title.toLowerCase().includes(w));
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+    return (b.rating ?? 0) - (a.rating ?? 0);
+  });
 
   return NextResponse.json(results);
 }

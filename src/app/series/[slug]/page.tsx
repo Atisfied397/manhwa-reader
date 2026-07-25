@@ -31,6 +31,7 @@ interface SimilarSeries {
   coverUrl: string;
   rating: number;
   chapters: number;
+  source?: string;
 }
 
 export default function SeriesPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -96,12 +97,13 @@ function SeriesPageInner({ params }: { params: Promise<{ slug: string }> }) {
         const items: SimilarSeries[] = (data.popular || [])
           .filter((p: { slug: string }) => p.slug !== slug)
           .slice(0, 8)
-          .map((p: { title: string; slug: string; coverUrl: string; rating: number }) => ({
+          .map((p: { title: string; slug: string; coverUrl: string; rating: number; source?: string }) => ({
             title: p.title,
             slug: p.slug,
             coverUrl: p.coverUrl,
             rating: p.rating || 10,
             chapters: Math.floor(Math.random() * 60) + 10,
+            source: p.source,
           }));
         setSimilarSeries(items);
       })
@@ -308,7 +310,7 @@ function SeriesPageInner({ params }: { params: Promise<{ slug: string }> }) {
                   {visibleChapters.map((ch) => (
                     <Link
                       key={ch.slug}
-                      href={`/reader/${slug}/${ch.slug}`}
+                      href={`/reader/${slug}/${ch.slug}?source=${source}`}
                       className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-card-hover"
                     >
                       <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
@@ -375,7 +377,7 @@ function SeriesPageInner({ params }: { params: Promise<{ slug: string }> }) {
               {similarSeries.map((item) => (
                 <Link
                   key={item.slug}
-                  href={`/series/${item.slug}`}
+                  href={`/series/${item.slug}?source=${item.source || "nyx"}`}
                   className="flex gap-3 rounded-lg p-2 transition-colors hover:bg-card-hover"
                 >
                   <div className="h-[70px] w-[50px] shrink-0 overflow-hidden rounded-md bg-muted">

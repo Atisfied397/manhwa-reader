@@ -1,12 +1,12 @@
 "use client";
 
-import { useAuth, SignInButton } from "@clerk/nextjs";
+import { useAuth } from "@/components/AuthProvider";
 import Link from "next/link";
 
 export default function BookmarksPage() {
-  const { isSignedIn } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
 
-  if (!isSignedIn) {
+  if (!user) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-12">
         <div className="flex flex-col items-center py-16 text-center">
@@ -19,11 +19,12 @@ export default function BookmarksPage() {
           <p className="mb-6 max-w-md text-sm text-muted-foreground">
             Sign in to save your favorite series and keep track of what you&apos;re reading.
           </p>
-          <SignInButton mode="modal">
-            <button className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover">
-              Sign In
-            </button>
-          </SignInButton>
+          <button
+            onClick={signInWithGoogle}
+            className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+          >
+            Sign In with Google
+          </button>
           <Link href="/" className="mt-6 text-sm text-primary hover:text-primary-hover">
             &larr; Back to Home
           </Link>

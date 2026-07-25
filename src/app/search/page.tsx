@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface SearchResult {
@@ -10,40 +10,76 @@ interface SearchResult {
   coverUrl: string;
   rating: number;
   type: string;
+  source?: string;
+  sourceUrl?: string;
 }
 
 function SearchResults() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const query = searchParams.get("q") ?? "";
+  const [searchInput, setSearchInput] = useState(query);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!query) {
+    setSearchInput(query);
+  }, [query]);
+
+  const debouncedInput = useDebounce(searchInput, 300);
+
+  useEffect(() => {
+    const q = debouncedInput.trim();
+    if (!q) {
       setResults([]);
       return;
     }
     setLoading(true);
-    fetch("/api/comics")
+    fetch(`/api/search?q=${encodeURIComponent(q)}`)
       .then((r) => r.json())
       .then((data) => {
-        const list = Array.isArray(data) ? data : [];
-        const q = query.toLowerCase();
-        setResults(
-          list.filter(
-            (s: SearchResult) =>
-              s.title.toLowerCase().includes(q) || s.type.toLowerCase().includes(q)
-          )
-        );
+        setResults(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [query]);
+  }, [debouncedInput]);
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchInput.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchInput.trim())}`);
+    }
+  }, [searchInput, router]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      <form onSubmit={handleSubmit} className="relative mb-8 max-w-md">
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search comics..."
+          className="w-full rounded-lg border border-border bg-card py-2 pl-4 pr-10 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+        />
+        <button
+          type="submit"
+          aria-label="Search"
+          className="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {loading ? (
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          )}
+        </button>
+      </form>
       <h1 className="mb-8 text-2xl font-bold text-white">
-        {query ? `Search results for "${query}"` : "Search Comics"}
+        {debouncedInput.trim() ? `Search results for "${debouncedInput}"` : "Search Comics"}
       </h1>
 
       {loading ? (
@@ -60,7 +96,7 @@ function SearchResults() {
           {results.map((comic) => (
             <Link
               key={comic.slug}
-              href={`/series/${comic.slug}`}
+              href={`/series/${comic.slug}?source=${comic.source || "nyx"}`}
               className="group flex flex-col overflow-hidden rounded-lg bg-card transition-all hover:bg-card-hover"
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
@@ -90,12 +126,12 @@ function SearchResults() {
             </Link>
           ))}
         </div>
-      ) : query ? (
+      ) : debouncedInput.trim() ? (
         <div className="flex flex-col items-center py-16 text-center">
           <svg className="mb-4 h-12 w-12 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <p className="text-sm text-muted-foreground">No results found for &ldquo;{query}&rdquo;</p>
+          <p className="text-sm text-muted-foreground">No results found for &ldquo;{debouncedInput}&rdquo;</p>
         </div>
       ) : (
         <div className="flex flex-col items-center py-16 text-center">
@@ -115,4 +151,13 @@ export default function SearchPage() {
       <SearchResults />
     </Suspense>
   );
+}
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
 }

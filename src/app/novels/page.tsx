@@ -9,6 +9,8 @@ interface ComicItem {
   coverUrl: string;
   rating: number;
   type: string;
+  source?: string;
+  sourceUrl?: string;
 }
 
 export default function NovelsPage() {
@@ -20,7 +22,7 @@ export default function NovelsPage() {
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
-        setNovels(list.filter((s: ComicItem) => s.title.toLowerCase().includes("[novel]") || s.type === "Novel"));
+        setNovels(list.filter((s: ComicItem) => s.type === "Novel"));
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -44,7 +46,7 @@ export default function NovelsPage() {
           {novels.map((novel) => (
             <Link
               key={novel.slug}
-              href={`/series/${novel.slug}`}
+              href={`/series/${novel.slug}?source=${novel.source || "nyx"}`}
               className="group flex flex-col overflow-hidden rounded-lg bg-card transition-all hover:bg-card-hover"
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">

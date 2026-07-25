@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useAuth, UserButton, SignInButton } from "@clerk/nextjs";
+import { useAuth } from "@/components/AuthProvider";
 import { useState } from "react";
+import SearchBar from "./SearchBar";
 
 export default function Header() {
-  const { isSignedIn } = useAuth();
+  const { user, signInWithGoogle, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navLinks = [
@@ -33,6 +34,15 @@ export default function Header() {
       icon: (
         <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h12v16H6V4z" />
+        </svg>
+      ),
+    },
+    {
+      href: "/categories",
+      label: "Categories",
+      icon: (
+        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z" />
         </svg>
       ),
     },
@@ -95,24 +105,9 @@ export default function Header() {
             </svg>
           </a>
 
-          <Link
-            href="/search"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </Link>
+          <div className="hidden sm:block">
+            <SearchBar placeholder="Search comics..." className="w-48 lg:w-64" />
+          </div>
 
           <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground">
             <svg
@@ -130,26 +125,41 @@ export default function Header() {
             </svg>
           </button>
 
-          {isSignedIn ? (
-            <UserButton userProfileUrl="/user" />
-          ) : (
-            <SignInButton mode="modal">
-              <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground">
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
-                </svg>
+          {user ? (
+            <div className="flex items-center gap-2">
+              {user.photoURL && (
+                <img
+                  src={user.photoURL}
+                  alt={user.displayName ?? "Profile"}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              )}
+              <button
+                onClick={logout}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Sign Out
               </button>
-            </SignInButton>
+            </div>
+          ) : (
+            <button
+              onClick={signInWithGoogle}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </button>
           )}
 
           <button
