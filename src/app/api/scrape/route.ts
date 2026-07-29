@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[api/scrape] Request failed:", message);
     return NextResponse.json({ error: `Failed to scrape: ${message}` }, { status: 500 });
   }
 }
@@ -81,6 +82,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[api/scrape] Request failed:", message);
     return NextResponse.json({ error: `Failed to scrape: ${message}` }, { status: 500 });
   }
 }

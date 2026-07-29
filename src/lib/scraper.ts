@@ -42,6 +42,33 @@ export const client = axios.create({
   ...(proxyConfig ? { httpsAgent: proxyConfig.agent, proxy: false } : {}),
 });
 
+// Retry wrapper with exponential backoff
+export async function fetchWithRetry<T>(
+  url: string,
+  maxRetries: number = 3,
+): Promise<{ data: T }> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await client.get(url);
+      return response as { data: T };
+    } catch (error) {
+      lastError = error;
+      const isRetryable = axios.isAxiosError(error) && (
+        !error.response ||
+        error.response.status >= 500 ||
+        error.response.status === 429 ||
+        error.code === "ECONNRESET" ||
+        error.code === "ETIMEDOUT"
+      );
+      if (!isRetryable || attempt === maxRetries) break;
+      const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+
 export interface Scraper {
   id: string;
   name: string;
@@ -54,15 +81,43 @@ export interface Scraper {
 function extractJsonLd(html: string, type: string): Record<string, unknown> | null {
   const $ = cheerio.load(html);
   let found: Record<string, unknown> | null = null;
-  $('script[type="application/ld+json"]').each((_, el) => {
-    try {
-      const data = JSON.parse($(el).html() ?? "");
-      if (data["@type"] === type || (data["@graph"] && data["@graph"].some((g: Record<string, unknown>) => g["@type"] === type))) {
-        const item = data["@type"] === type ? data : data["@graph"].find((g: Record<string, unknown>) => g["@type"] === type);
-        if (item) found = item;
+
+  // Recursively search for a @type match in a JSON-LD object,
+  // including nested @graph arrays and nested @graph within graph items.
+  function searchInObject(obj: unknown): Record<string, unknown> | null {
+    if (!obj || typeof obj !== "object") return null;
+    const rec = obj as Record<string, unknown>;
+
+    if (rec["@type"] === type) return rec;
+
+    if (Array.isArray(rec["@graph"])) {
+      for (const item of rec["@graph"]) {
+        const result = searchInObject(item);
+        if (result) return result;
       }
-    } catch { /* skip */ }
+    }
+
+    // Also check if the object itself is inside a graph array
+    if (Array.isArray(rec)) {
+      for (const item of rec) {
+        const result = searchInObject(item);
+        if (result) return result;
+      }
+    }
+
+    return null;
+  }
+
+  $('script[type="application/ld+json"]').each((_, el) => {
+    if (found) return;
+    try {
+      const htmlContent = $(el).html() ?? "";
+      const data = JSON.parse(htmlContent);
+      const result = searchInObject(data);
+      if (result) found = result;
+    } catch { /* skip invalid JSON */ }
   });
+
   return found;
 }
 
@@ -335,9 +390,8 @@ export const asuraScraper: Scraper = {
     $(".chapter-item, .chapter-row, li[class*='chapter'], tr[class*='chapter']").each((_, el) => {
       const num = parseFloat($(el).find(".number, .chap-num").text().trim()) || 0;
       const title = $(el).find(".title, .chapter-title").text().trim();
-      const link = $(el).find("a").first().attr("href");
       if (num > 0) {
-        chapters.push({ number: num, title: title || undefined, pages: link ? [link] : [] });
+        chapters.push({ number: num, title: title || undefined, pages: [] });
       }
     });
 
@@ -439,8 +493,6 @@ export const mangaPlusScraper: Scraper = {
       const chapterId = Number(ch.id);
       const name = (ch.name as string) ?? "";
       const subTitle = (ch.subTitle as string) ?? "";
-      const numMatch = name.match(/(\d+)/);
-      const number = numMatch ? parseInt(numMatch[1], 10) : chapterId;
 
       if (!chapters.some((c) => c.number === chapterId)) {
         chapters.push({
@@ -531,7 +583,7 @@ export interface NyxHomepageData {
 
 export async function scrapeNyxHomepage(): Promise<NyxHomepageData> {
   try {
-    const { data } = await client.get("https://nyxscans.com");
+    const { data } = await fetchWithRetry<string>("https://nyxscans.com");
     const $ = cheerio.load(data);
 
     const result: NyxHomepageData = {
@@ -635,7 +687,8 @@ export async function scrapeNyxHomepage(): Promise<NyxHomepageData> {
     result.latestReleases = result.latestReleases.slice(0, 30);
 
     return result;
-  } catch {
+  } catch (error) {
+    console.error("[scrapeNyxHomepage] Failed:", error instanceof Error ? error.message : String(error));
     return { featured: [], popular: [], latestNovels: [], latestReleases: [], mostPopular: [] };
   }
 }
@@ -647,7 +700,7 @@ export interface NyxComicsListing {
 
 export async function scrapeNyxComics(): Promise<NyxComicsListing> {
   try {
-    const { data } = await client.get("https://nyxscans.com/comics");
+    const { data } = await fetchWithRetry<string>("https://nyxscans.com/comics");
     const $ = cheerio.load(data);
 
     const seriesList: NyxComicsListing["series"] = [];
@@ -678,7 +731,7 @@ export async function scrapeNyxComics(): Promise<NyxComicsListing> {
 // ============ ASURA SCANS HOMEPAGE ============
 export async function scrapeAsuraHomepage(): Promise<NyxHomepageData> {
   try {
-    const { data } = await client.get("https://asurascans.com");
+    const { data } = await fetchWithRetry<string>("https://asurascans.com");
     const $ = cheerio.load(data);
 
     const result: NyxHomepageData = {
@@ -722,7 +775,8 @@ export async function scrapeAsuraHomepage(): Promise<NyxHomepageData> {
     result.popular = result.popular.slice(0, 12);
 
     return result;
-  } catch {
+  } catch (error) {
+    console.error("[scrapeAsuraHomepage] Failed:", error instanceof Error ? error.message : String(error));
     return { featured: [], popular: [], latestNovels: [], latestReleases: [], mostPopular: [] };
   }
 }
@@ -730,7 +784,7 @@ export async function scrapeAsuraHomepage(): Promise<NyxHomepageData> {
 // ============ COMIX.TO HOMEPAGE ============
 export async function scrapeComixHomepage(): Promise<NyxHomepageData> {
   try {
-    const { data } = await client.get("https://comix.to");
+    const { data } = await fetchWithRetry<string>("https://comix.to");
     const $ = cheerio.load(data);
 
     const result: NyxHomepageData = {
@@ -773,7 +827,8 @@ export async function scrapeComixHomepage(): Promise<NyxHomepageData> {
     result.popular = result.popular.slice(0, 12);
 
     return result;
-  } catch {
+  } catch (error) {
+    console.error("[scrapeComixHomepage] Failed:", error instanceof Error ? error.message : String(error));
     return { featured: [], popular: [], latestNovels: [], latestReleases: [], mostPopular: [] };
   }
 }
@@ -781,7 +836,7 @@ export async function scrapeComixHomepage(): Promise<NyxHomepageData> {
 // ============ HIVETOONS HOMEPAGE ============
 export async function scrapeHivetoonsHomepage(): Promise<NyxHomepageData> {
   try {
-    const { data } = await client.get("https://hivetoons.org");
+    const { data } = await fetchWithRetry<string>("https://hivetoons.org");
     const $ = cheerio.load(data);
 
     const result: NyxHomepageData = {
@@ -824,7 +879,8 @@ export async function scrapeHivetoonsHomepage(): Promise<NyxHomepageData> {
     result.popular = result.popular.slice(0, 12);
 
     return result;
-  } catch {
+  } catch (error) {
+    console.error("[scrapeHivetoonsHomepage] Failed:", error instanceof Error ? error.message : String(error));
     return { featured: [], popular: [], latestNovels: [], latestReleases: [], mostPopular: [] };
   }
 }
@@ -836,7 +892,7 @@ export async function scrapeMantaHomepage(): Promise<NyxHomepageData> {
   };
 
   try {
-    const { data } = await client.get("https://manta.net/en");
+    const { data } = await fetchWithRetry<string>("https://manta.net/en");
     const $ = cheerio.load(data);
 
     $("a[href*='/comics/'], a[href*='/series/'], a[href*='/title/']").each((_, el) => {
@@ -872,7 +928,8 @@ export async function scrapeMantaHomepage(): Promise<NyxHomepageData> {
 
     result.featured = result.featured.slice(0, 6);
     result.popular = result.popular.slice(0, 12);
-  } catch {
+  } catch (error) {
+    console.error("[scrapeMantaHomepage] Failed:", error instanceof Error ? error.message : String(error));
     // silently fail
   }
 
@@ -904,6 +961,8 @@ export async function scrapeAllHomepage(): Promise<NyxHomepageData> {
       merged.latestNovels.push(...r.value.latestNovels);
       merged.latestReleases.push(...r.value.latestReleases);
       merged.mostPopular.push(...r.value.mostPopular);
+    } else {
+      console.error("[scrapeAllHomepage] Scraper failed:", r.reason);
     }
   }
 
@@ -920,9 +979,29 @@ export async function scrapeAllHomepage(): Promise<NyxHomepageData> {
 
   merged.featured = dedup(merged.featured).slice(0, 6);
   merged.popular = dedup(merged.popular).slice(0, 20);
-  merged.latestNovels = dedup(merged.latestNovels).slice(0, 12);
   merged.latestReleases = dedup(merged.latestReleases).slice(0, 30);
-  merged.mostPopular = dedup(merged.mostPopular).slice(0, 12);
+
+  // Populate latestNovels from popular items where type is "Novel"
+  if (merged.latestNovels.length === 0) {
+    merged.latestNovels = merged.popular
+      .filter((p) => p.type === "Novel")
+      .slice(0, 12);
+  }
+
+  // Populate mostPopular from popular items sorted by rating (descending)
+  if (merged.mostPopular.length === 0) {
+    merged.mostPopular = merged.popular
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 12)
+      .map((p) => ({
+        title: p.title,
+        slug: p.slug,
+        genres: [],
+        type: p.type,
+        source: p.source,
+        sourceUrl: p.sourceUrl,
+      }));
+  }
 
   return merged;
 }

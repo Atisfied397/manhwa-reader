@@ -28,14 +28,63 @@ export interface GenreMeta {
 }
 
 // ---- SOURCE CONFIG ----
+// Sources are configured inline in each scraper function below.
 
-const SOURCES: Record<string, { name: string; baseUrl: string }> = {
-  comixto: { name: "Comix", baseUrl: "https://comix.to" },
+// ---- SHARED HELPER: parse series entries from a cheerio-loaded page ----
 
-  asurascans: { name: "Asura Scans", baseUrl: "https://asurascans.com" },
-  nyx: { name: "Nyx Scans", baseUrl: "https://nyxscans.com" },
-  hivetoons: { name: "HiveToons", baseUrl: "https://hivetoons.org" },
-};
+interface ParseOptions {
+  source: string;
+  sourceUrl: string;
+  seriesHrefPattern: RegExp;
+  slugExtractor: (href: string) => string | null;
+  titleSelectors: string;
+  coverSelector: string;
+  ratingPattern?: RegExp;
+}
+
+function parseSeriesFromPage(
+  $: cheerio.CheerioAPI,
+  html: string,
+  opts: ParseOptions,
+): CategorySeriesEntry[] {
+  const series: CategorySeriesEntry[] = [];
+
+  $("a[href*='/series/'], a[href*='/comics/']").each((_, el) => {
+    const href = $(el).attr("href") ?? "";
+    if (href.includes("chapter")) return;
+
+    const slug = opts.slugExtractor(href);
+    if (!slug) return;
+
+    const title =
+      $(el).find(opts.titleSelectors).first().text().trim() ||
+      $(el).find("img").first().attr("alt") ||
+      slug.replace(/-/g, " ");
+
+    const coverUrl = $(el).find(opts.coverSelector).first().attr("src") ?? "";
+
+    const allText = $(el).text();
+    const ratingMatch = allText.match(opts.ratingPattern || /(\d+(\.\d+)?)/);
+    const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
+
+    const isNovel = /novel/i.test(allText);
+    if (isAdultContent(allText)) return;
+
+    if (title && !series.some((s) => s.slug === slug)) {
+      series.push({
+        title,
+        slug,
+        coverUrl,
+        rating,
+        type: isNovel ? "Novel" : "Manhwa",
+        source: opts.source,
+        sourceUrl: opts.sourceUrl,
+      });
+    }
+  });
+
+  return series;
+}
 
 // ---- COMIX.TO ----
 
@@ -63,28 +112,17 @@ export async function scrapeComixGenrePage(slug: string, page: number = 1): Prom
     const html = typeof data === "string" ? data : "";
     const $ = cheerio.load(html);
 
-    const series: CategorySeriesEntry[] = [];
-    $("a[href*='/series/']").each((_, el) => {
-      const href = $(el).attr("href") ?? "";
-      if (href.includes("chapter")) return;
-      const seriesSlug = href.replace("/series/", "").replace(/^\//, "").split("/")[0];
-      if (!seriesSlug) return;
-      const title = $(el).find("h2, h3, [class*='title'], .font-bold").first().text().trim()
-        || $(el).find("img").first().attr("alt")
-        || seriesSlug.replace(/-/g, " ");
-      const coverUrl = $(el).find("img").first().attr("src") ?? "";
-      const allText = $(el).text();
-      const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
-      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-      const isNovel = /novel/i.test(allText);
-      if (isAdultContent(allText)) return;
-      if (title && !series.some((s) => s.slug === seriesSlug)) {
-        series.push({
-          title, slug: seriesSlug, coverUrl, rating,
-          type: isNovel ? "Novel" : "Manhwa",
-          source: "comixto", sourceUrl: "https://comix.to",
-        });
-      }
+    const series = parseSeriesFromPage($, html, {
+      source: "comixto",
+      sourceUrl: "https://comix.to",
+      seriesHrefPattern: /\/series\//,
+      slugExtractor: (href) => {
+        const s = href.replace("/series/", "").replace(/^\//, "").split("/")[0];
+        return s || null;
+      },
+      titleSelectors: "h2, h3, [class*='title'], .font-bold",
+      coverSelector: "img",
+      ratingPattern: /(\d+(\.\d+)?)/,
     });
 
     const totalMatch = html.match(/page=(\d+)[^>]*>$/m) || html.match(/\/genre\/[\w-]+\?page=(\d+)/);
@@ -127,32 +165,28 @@ export async function scrapeAsuraGenrePage(slug: string, page: number = 1): Prom
     const { data } = await client.get(`https://asurascans.com/browse?genres=${slug}&page=${page}`);
     const $ = cheerio.load(data);
 
-    const series: CategorySeriesEntry[] = [];
-    $("a[href*='/comics/'], a[href*='/series/']").each((_, el) => {
-      const href = $(el).attr("href") ?? "";
-      if (href.includes("chapter")) return;
-      const slugMatch = href.match(/\/(?:comics|series)\/([^/]+)/);
-      if (!slugMatch) return;
-      const seriesSlug = slugMatch[1];
-      const title = $(el).find("h2, h3, [class*='title'], .font-bold").first().text().trim()
-        || $(el).find("img").first().attr("alt")
-        || seriesSlug.replace(/-/g, " ");
-      const coverUrl = $(el).find("img").first().attr("src") ?? "";
-      const allText = $(el).text();
-      const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
-      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-      const isNovel = /novel/i.test(allText);
-      if (isAdultContent(allText)) return;
-      if (title && !series.some((s) => s.slug === seriesSlug)) {
-        series.push({
-          title, slug: seriesSlug, coverUrl, rating,
-          type: isNovel ? "Novel" : "Manhwa",
-          source: "asurascans", sourceUrl: "https://asurascans.com",
-        });
-      }
+    const series = parseSeriesFromPage($, data, {
+      source: "asurascans",
+      sourceUrl: "https://asurascans.com",
+      seriesHrefPattern: /\/(?:comics|series)\//,
+      slugExtractor: (href) => {
+        const match = href.match(/\/(?:comics|series)\/([^/]+)/);
+        return match ? match[1] : null;
+      },
+      titleSelectors: "h2, h3, [class*='title'], .font-bold",
+      coverSelector: "img",
+      ratingPattern: /(\d+(\.\d+)?)/,
     });
 
-    return { series, totalPages: 1, currentPage: page };
+    // Extract total pages from pagination
+    let totalPages = 1;
+    const lastPageLink = $("a[href*='page=']").last().attr("href");
+    if (lastPageLink) {
+      const pageMatch = lastPageLink.match(/page=(\d+)/);
+      if (pageMatch) totalPages = Math.max(1, parseInt(pageMatch[1]));
+    }
+
+    return { series, totalPages, currentPage: page };
   } catch {
     return { series: [], totalPages: 0, currentPage: page };
   }
@@ -165,28 +199,17 @@ export async function scrapeNyxGenrePage(slug: string, page: number = 1): Promis
     const { data } = await client.get(`https://nyxscans.com/series?genres=${slug}&page=${page}`);
     const $ = cheerio.load(data);
 
-    const series: CategorySeriesEntry[] = [];
-    $("a[href*='/series/']").each((_, el) => {
-      const href = $(el).attr("href") ?? "";
-      if (href.includes("chapter")) return;
-      const seriesSlug = href.replace("/series/", "").replace(/^\//, "").split("/")[0];
-      if (!seriesSlug) return;
-      const title = $(el).find("h2, h3, [class*='title'], .font-bold").first().text().trim()
-        || $(el).find("img").first().attr("alt")
-        || seriesSlug.replace(/-/g, " ");
-      const coverUrl = $(el).find("img").first().attr("src") ?? "";
-      const allText = $(el).text();
-      const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
-      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-      const isNovel = /novel/i.test(allText);
-      if (isAdultContent(allText)) return;
-      if (title && !series.some((s) => s.slug === seriesSlug)) {
-        series.push({
-          title, slug: seriesSlug, coverUrl, rating,
-          type: isNovel ? "Novel" : "Manhwa",
-          source: "nyx", sourceUrl: "https://nyxscans.com",
-        });
-      }
+    const series = parseSeriesFromPage($, data, {
+      source: "nyx",
+      sourceUrl: "https://nyxscans.com",
+      seriesHrefPattern: /\/series\//,
+      slugExtractor: (href) => {
+        const s = href.replace("/series/", "").replace(/^\//, "").split("/")[0];
+        return s || null;
+      },
+      titleSelectors: "h2, h3, [class*='title'], .font-bold",
+      coverSelector: "img",
+      ratingPattern: /(\d+(\.\d+)?)/,
     });
 
     return { series, totalPages: 1, currentPage: page };
@@ -202,28 +225,17 @@ export async function scrapeHivetoonsGenrePage(slug: string, page: number = 1): 
     const { data } = await client.get(`https://hivetoons.org/genre?genre=${slug}&page=${page}`);
     const $ = cheerio.load(data);
 
-    const series: CategorySeriesEntry[] = [];
-    $("a[href*='/series/']").each((_, el) => {
-      const href = $(el).attr("href") ?? "";
-      if (href.includes("chapter")) return;
-      const seriesSlug = href.replace("/series/", "").replace(/^\//, "").split("/")[0];
-      if (!seriesSlug) return;
-      const title = $(el).find("h2, h3, [class*='title'], .font-bold").first().text().trim()
-        || $(el).find("img").first().attr("alt")
-        || seriesSlug.replace(/-/g, " ");
-      const coverUrl = $(el).find("img").first().attr("src") ?? "";
-      const allText = $(el).text();
-      const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
-      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-      const isNovel = /novel/i.test(allText);
-      if (isAdultContent(allText)) return;
-      if (title && !series.some((s) => s.slug === seriesSlug)) {
-        series.push({
-          title, slug: seriesSlug, coverUrl, rating,
-          type: isNovel ? "Novel" : "Manhwa",
-          source: "hivetoons", sourceUrl: "https://hivetoons.org",
-        });
-      }
+    const series = parseSeriesFromPage($, data, {
+      source: "hivetoons",
+      sourceUrl: "https://hivetoons.org",
+      seriesHrefPattern: /\/series\//,
+      slugExtractor: (href) => {
+        const s = href.replace("/series/", "").replace(/^\//, "").split("/")[0];
+        return s || null;
+      },
+      titleSelectors: "h2, h3, [class*='title'], .font-bold",
+      coverSelector: "img",
+      ratingPattern: /(\d+(\.\d+)?)/,
     });
 
     return { series, totalPages: 1, currentPage: page };

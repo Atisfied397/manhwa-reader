@@ -159,7 +159,8 @@ export async function getAllComics(): Promise<ComicItem[]> {
     }
 
     return deduped;
-  } catch {
+  } catch (error) {
+    console.error("[getAllComics] Failed, using fallback:", error instanceof Error ? error.message : String(error));
     return fallbackComics;
   }
 }

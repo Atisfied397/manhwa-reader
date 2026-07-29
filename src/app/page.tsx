@@ -79,6 +79,7 @@ export default function HomePage() {
   const [releases, setReleases] = useState<LatestRelease[]>([]);
   const [loading, setLoading] = useState(true);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [showReportBanner, setShowReportBanner] = useState(true);
   const popularScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -359,35 +360,46 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Report Issue Banner */}
-        <div className="mb-8 flex items-center justify-between rounded-xl border border-border bg-card px-6 py-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
+        {/* Report Issue Banner - Dismissible */}
+        {!showReportBanner && (
+          <div className="mb-8 flex items-center justify-between rounded-xl border border-border bg-card px-6 py-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Need Help or Found an Issue?</h3>
+                <p className="text-sm text-muted-foreground">
+                  Report bugs, payment issues, or other problems • Get rewards
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold text-white">Need Help or Found an Issue?</h3>
-              <p className="text-sm text-muted-foreground">
-                Report bugs, payment issues, or other problems • Get rewards
-              </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowReportBanner(false)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+              <button className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-hover">
+                Report Issue
+              </button>
             </div>
           </div>
-          <button className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-hover">
-            Report Issue
-          </button>
-        </div>
+        )}
 
         {/* Latest Novels Section */}
         <div className="mb-8">

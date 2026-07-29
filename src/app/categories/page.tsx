@@ -46,7 +46,7 @@ export default function CategoriesPage() {
             <Link
               key={cat.slug}
               href={`/categories/${cat.slug}`}
-              className="group flex flex-col overflow-hidden rounded-lg bg-card transition-all hover:bg-card-hover"
+              className="group flex flex-col overflow-hidden rounded-lg bg-card transition-all hover:scale-[1.02] hover:bg-card-hover"
             >
               <div className="flex aspect-video items-center justify-center bg-muted p-4">
                 {cat.sampleCovers.length > 0 ? (
@@ -62,7 +62,13 @@ export default function CategoriesPage() {
                     ))}
                   </div>
                 ) : (
-                  <svg className="h-10 w-10 text-muted-foreground" fill="currentColor" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>
+                  <svg
+                    className="h-10 w-10 text-muted-foreground"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z" />
+                  </svg>
                 )}
               </div>
               <div className="flex flex-col gap-1 p-3">

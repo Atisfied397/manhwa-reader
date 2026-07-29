@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[api/scrape/pages] Failed:", message);
     return NextResponse.json(
       { error: `Failed to load chapter pages: ${message}` },
       { status: 500 }

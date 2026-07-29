@@ -11,7 +11,7 @@ async function scrapeSeries(seriesUrl, source = "asura") {
   const response = await fetch(`${BASE_URL}/api/scrape`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source, seriesUrl }),
+    body: JSON.stringify({ source, url: seriesUrl }),
   });
 
   if (!response.ok) {

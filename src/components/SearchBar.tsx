@@ -29,6 +29,7 @@ export default function SearchBar({ placeholder = "Search...", className }: Sear
 
   useEffect(() => {
     if (!debouncedQuery.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuggestions([]);
       setOpen(false);
       return;
