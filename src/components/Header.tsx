@@ -71,7 +71,14 @@ export default function Header() {
                 </Link>
               )}
               {user.photoURL && (
-                <img src={user.photoURL} alt="" className="h-8 w-8 rounded-full object-cover" />
+                <Link href="/profile" aria-label="Profile" className="block">
+                  <img src={user.photoURL} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-primary/30 transition-transform hover:scale-105" />
+                </Link>
+              )}
+              {!user.photoURL && (
+                <Link href="/profile" aria-label="Profile" className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
+                  {user.email?.[0]?.toUpperCase()}
+                </Link>
               )}
               <button onClick={logout} className="hidden text-xs text-muted-foreground hover:text-foreground sm:block">
                 Sign Out
@@ -125,6 +132,16 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
+            {user && (
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                onClick={() => setMenuOpen(false)}
+              >
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12c2.67 0 8 1.34 8 4v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2c0-2.66 1.33-4 4-4.5V8a4 4 0 118 0v4.5c2.67.5 4 1.84 4 4.5z" /></svg>
+                Profile
+              </Link>
+            )}
             {user?.email === ADMIN_EMAIL && (
               <Link
                 href="/admin"

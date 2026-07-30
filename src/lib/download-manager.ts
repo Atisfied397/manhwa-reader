@@ -103,7 +103,6 @@ export async function downloadChapter(
   }
 
   const dirPath = `chapters/${seriesSlug}/${chapterSlug}`;
-  let totalSize = 0;
 
   for (let i = 0; i < pageUrls.length; i++) {
     const url = pageUrls[i];
@@ -117,12 +116,11 @@ export async function downloadChapter(
     });
 
     try {
-      const result = await FileTransfer.downloadFile({
+      await FileTransfer.downloadFile({
         url,
         path: `${dirPath}/${filename}`,
         progress: false,
       });
-      totalSize += result.size || 0;
     } catch {
       // Retry once
       try {
@@ -145,7 +143,7 @@ export async function downloadChapter(
     chapterNumber,
     pages: pageUrls,
     downloadedAt: Date.now(),
-    totalSize,
+    totalSize: 0,
   };
 
   const downloads = await getDownloadedChapters();
