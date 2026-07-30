@@ -40,8 +40,17 @@ jobs:
 
       - name: Update Capacitor config URL
         run: |
-          APP_URL="${{ github.event.inputs.app_url || 'https://manhwa-reader.vercel.app' }}"
-          sed -i "s|process.env.NEXT_PUBLIC_APP_URL || \"https://manhwa-reader.vercel.app\"|\"$APP_URL\"|g" capacitor.config.ts
+          node -e "
+          const fs = require('fs');
+          const url = '${{ github.event.inputs.app_url || '' }}' || 'https://manhwa-reader.vercel.app';
+          let config = fs.readFileSync('capacitor.config.ts', 'utf8');
+          config = config.replace(
+            /url:\s*process\.env\.NEXT_PUBLIC_APP_URL\s*\|\|\s*['\"].*?['\"]/,
+            'url: \"' + url + '\"'
+          );
+          fs.writeFileSync('capacitor.config.ts', config);
+          console.log('Updated URL to: ' + url);
+          "
 
       - name: Sync Capacitor
         run: npx cap sync android
