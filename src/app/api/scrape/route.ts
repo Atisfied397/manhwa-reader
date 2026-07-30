@@ -1,88 +1,74 @@
 import { NextResponse } from "next/server";
-import { loadScraper } from "@/lib/scraper";
-import type { Scraper } from "@/lib/scraper";
+import { db } from "@/lib/db";
+import { series, chapters, genres, seriesGenres } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
-function detectSourceFromUrl(urlStr: string): string {
-  try {
-    const hostname = new URL(urlStr).hostname;
-    if (hostname.includes("asurascans")) return "asurascans";
-    if (hostname.includes("asuracomic")) return "asura";
-    if (hostname.includes("nyxscans")) return "nyx";
-    if (hostname.includes("mangaplus")) return "mangaplus";
-  } catch { /* ignore */ }
-  return "asurascans";
-}
-
-function extractSlugFromUrl(urlStr: string): string {
-  const pathParts = new URL(urlStr).pathname.split("/").filter(Boolean);
-  return pathParts[pathParts.length - 1];
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { source, slug, url } = body as { source?: string; slug?: string; url?: string };
-
-    let resolvedSource = source ?? "asurascans";
-    let resolvedSlug = slug;
-
-    if (!resolvedSlug && url) {
-      resolvedSlug = extractSlugFromUrl(url);
-      resolvedSource = detectSourceFromUrl(url);
-    }
-
-    if (!resolvedSlug) {
-      return NextResponse.json({
-        error: "Provide 'slug' or 'url'",
-        usage: {
-          bySlug: { source: "asurascans|nyx|asura", slug: "solo-leveling" },
-          byUrl: { url: "https://asurascans.com/comics/solo-leveling" },
-        },
-      }, { status: 400 });
-    }
-
-    const scraper: Scraper = loadScraper(resolvedSource);
-    const [series, chapters] = await Promise.all([
-      scraper.getSeries(resolvedSlug),
-      scraper.getChapters(resolvedSlug),
-    ]);
-
-    return NextResponse.json({
-      source: scraper.name,
-      series,
-      chapters: chapters.slice(0, 50),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[api/scrape] Request failed:", message);
-    return NextResponse.json({ error: `Failed to scrape: ${message}` }, { status: 500 });
-  }
-}
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get("slug");
-    const source = searchParams.get("source") ?? "nyx";
 
     if (!slug) {
-      return NextResponse.json({ error: "Provide 'slug' query parameter" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Provide 'slug' query parameter" },
+        { status: 400 }
+      );
     }
 
-    const scraper: Scraper = loadScraper(source);
-    const [series, chapters] = await Promise.all([
-      scraper.getSeries(slug),
-      scraper.getChapters(slug),
-    ]);
+    // Read series from database
+    const dbSeries = await db
+      .select()
+      .from(series)
+      .where(eq(series.slug, slug))
+      .limit(1);
+
+    if (dbSeries.length === 0) {
+      return NextResponse.json({ error: "Series not found" }, { status: 404 });
+    }
+
+    const s = dbSeries[0];
+
+    // Get genres
+    const genreResults = await db
+      .select({ name: genres.name })
+      .from(seriesGenres)
+      .innerJoin(genres, eq(seriesGenres.genreId, genres.id))
+      .where(eq(seriesGenres.seriesId, s.id));
+
+    // Get chapters
+    const dbChapters = await db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.seriesId, s.id))
+      .orderBy(chapters.sortOrder, chapters.number);
 
     return NextResponse.json({
-      source: scraper.name,
-      series,
-      chapters: chapters.slice(0, 50),
+      series: {
+        title: s.title,
+        altTitle: s.altTitle,
+        description: s.description,
+        coverUrl: s.coverUrl,
+        bannerUrl: s.bannerUrl,
+        status: s.status,
+        rating: s.rating,
+        author: s.author,
+        artist: s.artist,
+        genres: genreResults.map((g) => g.name),
+      },
+      chapters: dbChapters
+        .filter((ch) => !ch.isHidden)
+        .map((ch) => ({
+          number: ch.number,
+          title: ch.title,
+          slug: ch.slug,
+          pageCount: ch.pageCount,
+        })),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/scrape] Request failed:", message);
-    return NextResponse.json({ error: `Failed to scrape: ${message}` }, { status: 500 });
+    return NextResponse.json({ error: `Failed to load series: ${message}` }, { status: 500 });
   }
 }

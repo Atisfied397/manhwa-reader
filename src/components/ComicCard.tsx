@@ -25,7 +25,7 @@ export default function ComicCard({
   showType = false,
   size = "md",
 }: ComicCardProps) {
-  const href = `/series/${comic.slug}?source=${comic.source || "nyx"}`;
+  const href = `/series/${comic.slug}`;
 
   return (
     <Link

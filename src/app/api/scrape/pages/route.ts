@@ -1,21 +1,15 @@
 import { NextResponse } from "next/server";
-import { loadScraper, nyxScansScraper, asuraScansScraper, comixToScraper, hivetoonsScraper, mantaScraper } from "@/lib/scraper";
-import type { Scraper } from "@/lib/scraper";
+import { db } from "@/lib/db";
+import { series, chapters, chapterPages } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
-const allScrapers: Scraper[] = [
-  nyxScansScraper,
-  asuraScansScraper,
-  comixToScraper,
-  hivetoonsScraper,
-  mantaScraper,
-];
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get("slug");
     const chapter = searchParams.get("chapter");
-    const source = searchParams.get("source") ?? "nyx";
 
     if (!slug || !chapter) {
       return NextResponse.json(
@@ -24,37 +18,45 @@ export async function GET(request: Request) {
       );
     }
 
-    const primary: Scraper = loadScraper(source);
-    const triedSources = new Set<string>();
-    triedSources.add(primary.id);
-    let lastError = "";
+    // Find series
+    const dbSeries = await db
+      .select()
+      .from(series)
+      .where(eq(series.slug, slug))
+      .limit(1);
 
-    try {
-      const pages = await primary.getChapterPages(slug, chapter);
-      if (pages.length > 0) {
-        return NextResponse.json({ pages });
-      }
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : "Unknown error";
+    if (dbSeries.length === 0) {
+      return NextResponse.json({ error: "Series not found" }, { status: 404 });
     }
 
-    for (const alt of allScrapers) {
-      if (triedSources.has(alt.id)) continue;
-      triedSources.add(alt.id);
-      try {
-        const pages = await alt.getChapterPages(slug, chapter);
-        if (pages.length > 0) {
-          return NextResponse.json({ pages, source: alt.id });
-        }
-      } catch {
-        // try next
-      }
-    }
+    // Find chapter by slug
+    const chNumber = chapter.replace(/^chapter-/, "");
+    const dbChapters = await db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.seriesId, dbSeries[0].id));
 
-    return NextResponse.json(
-      { error: `Failed to load chapter pages${lastError ? `: ${lastError}` : ""}` },
-      { status: 500 }
+    const match = dbChapters.find(
+      (c) =>
+        c.slug === chapter ||
+        c.number.toString() === chNumber ||
+        `chapter-${c.number}` === chapter
     );
+
+    if (!match) {
+      return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
+    }
+
+    // Get pages
+    const pages = await db
+      .select()
+      .from(chapterPages)
+      .where(eq(chapterPages.chapterId, match.id))
+      .orderBy(chapterPages.sortOrder);
+
+    return NextResponse.json({
+      pages: pages.map((p) => p.imageUrl),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/scrape/pages] Failed:", message);

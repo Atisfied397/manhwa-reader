@@ -10,6 +10,7 @@ interface SearchResult {
   coverUrl: string;
   rating: number;
   type: string;
+  source?: string;
 }
 
 interface SearchBarProps {

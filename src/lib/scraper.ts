@@ -4,6 +4,38 @@ import crypto from "crypto";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import type { ScrapedSeries, ScrapedChapter } from "./types";
 
+function naturalSortUrls(urls: string[]): string[] {
+  const extractNumbers = (s: string): number[] => {
+    const nums: number[] = [];
+    let current = "";
+    for (const ch of s) {
+      if (/\d/.test(ch)) {
+        current += ch;
+      } else if (current !== "") {
+        nums.push(parseInt(current, 10));
+        current = "";
+      }
+    }
+    if (current !== "") nums.push(parseInt(current, 10));
+    return nums;
+  };
+
+  return [...urls].sort((a, b) => {
+    const aNums = extractNumbers(a);
+    const bNums = extractNumbers(b);
+    const len = Math.min(aNums.length, bNums.length);
+    for (let i = 0; i < len; i++) {
+      if (aNums[i] !== bNums[i]) return aNums[i] - bNums[i];
+    }
+    return aNums.length - bNums.length;
+  });
+}
+
+function filterChapterPages(urls: string[]): string[] {
+  const COVER_RE = /(?:^|[\\/])0*\.(?:webp|jpg|png|jpeg)$|cover|thumb|banner|icon|logo|avatar|poster|featured|promo|advertisement/i;
+  return urls.filter((url) => !COVER_RE.test(url));
+}
+
 const MP_API_BASE = "https://jumpg-webapi.tokyo-cdn.com/api";
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -210,27 +242,14 @@ export const asuraScansScraper: Scraper = {
       }
     });
 
-    // Collect from all img tags
-    $("img").each((_, el) => {
-      const src = $(el).attr("src");
-      if (src && /chapter|page|chapters|cdn\.asurascans/i.test(src) && !src.includes("cover") && !src.includes("logo")) {
-        pagesSet.add(src);
-      }
-    });
-
-    // Regex fallback: asura chapter image URLs
-    const cdnUrls = html.match(/https?:\/\/cdn\.asurascans\.com[^"'\s<>]+(?:chapters|chapter_images)[^"'\s<>]*\.(?:webp|jpg|png|jpeg)/gi);
+    // Regex: asura CDN chapter image URLs (most reliable source)
+    const cdnUrls = html.match(/https?:\/\/cdn\.asurascans\.com\/chapters\/[^"'\s<>]+\.(?:webp|jpg|png|jpeg)/gi);
     if (cdnUrls) {
       for (const u of cdnUrls) pagesSet.add(u);
     }
 
-    // Regex fallback: any image-like URL with page/chapter pattern
-    const allImgUrls = html.match(/https?:\/\/[^"'\s<>]+(?:page-\d+|\d{4,})[^"'\s<>]*\.(?:webp|jpg|png|jpeg)/gi);
-    if (allImgUrls) {
-      for (const u of allImgUrls) pagesSet.add(u);
-    }
-
-    const pages = [...pagesSet].sort();
+    // Collect from img tags in the reader area
+    const pages = naturalSortUrls(filterChapterPages([...pagesSet]));
     return pages;
   },
 };
@@ -247,15 +266,12 @@ export const nyxScansScraper: Scraper = {
     const html = typeof data === "string" ? data : "";
     const $ = cheerio.load(html);
 
-    // Try og:title first, then h1, then extract from page content, finally fallback to slug
     let title = $('meta[property="og:title"]').attr("content")?.trim() ?? "";
-    // Remove common suffixes like " - Nyx Scans"
     title = title.replace(/\s*[-–]\s*Nyx\s*Scans?\s*$/i, "").trim();
     if (!title) {
       title = $("h1").first().text().trim();
     }
     if (!title) {
-      // Try to extract title from page content using common patterns
       const contentMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
       if (contentMatch) title = contentMatch[1].trim();
     }
@@ -265,29 +281,42 @@ export const nyxScansScraper: Scraper = {
     const description = $('meta[property="og:description"]').attr("content") ?? $('meta[name="description"]').attr("content") ?? "";
     const coverUrl = $('meta[property="og:image"]').attr("content") ?? "";
 
-    let rating = undefined;
-    const ratingText = $('[class*="rating"]').first().text().trim() || $(".text-star, .flex.items-center.gap-1 span").first().text().trim();
-    if (ratingText) rating = parseFloat(ratingText);
+    const VALID_STATUSES = ["ongoing", "completed", "hiatus", "dropped", "coming soon"];
+    let status = "";
+    $("span, p, div").each((_, el) => {
+      const text = $(el).text().trim().toLowerCase();
+      if (VALID_STATUSES.includes(text)) {
+        status = text;
+        return false;
+      }
+      return true;
+    });
+    if (!status) status = "ongoing";
 
-    const status = $('[class*="status"]').first().text().trim() || $(".capitalize").first().text().trim() || "ongoing";
+    let rating: number | undefined;
+    const ratingStr = $("span").filter((_, el) => /^\d+(\.\d+)?$/.test($(el).text().trim())).first().text().trim();
+    if (ratingStr) {
+      const parsed = parseFloat(ratingStr);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 10) rating = parsed;
+    }
 
-    const author = $('[class*="author"]').first().text().trim() || $("a[href*='author']").first().text().trim() || "";
-    const artist = $('[class*="artist"]').first().text().trim() || $("a[href*='artist']").first().text().trim() || "";
+    const author = "";
+    const artist = "";
 
     const genres: string[] = [];
-    $(".genres a, .tags a, [class*='genre'] a, .flex-wrap.gap-2 a, .flex-wrap.gap-2 span").each((_, el) => {
-      const text = $(el).text().trim();
-      if (text && text.length < 30) genres.push(text);
+    $("a").each((_, el) => {
+      const href = $(el).attr("href") ?? "";
+      if (href.includes("/genre/") || href.includes("/categories/")) {
+        const text = $(el).text().trim();
+        if (text && text.length < 30) genres.push(text);
+      }
     });
-
-    const altTitle = $('[class*="alt"], [class*="alternative"]').first().text().trim() || "";
 
     return {
       title,
-      altTitle: altTitle || undefined,
       description,
       coverUrl,
-      status: status.toLowerCase(),
+      status,
       rating,
       author: author || undefined,
       artist: artist || undefined,
@@ -302,7 +331,7 @@ export const nyxScansScraper: Scraper = {
 
     const chapters: ScrapedChapter[] = [];
 
-    $("a[href*='/series/']").each((_, el) => {
+    $("a").each((_, el) => {
       const href = $(el).attr("href") ?? "";
       const match = href.match(new RegExp(`${slug}/chapter-(\\d+(\\.\\d+)?)`));
       if (match) {
@@ -355,7 +384,7 @@ export const nyxScansScraper: Scraper = {
       for (const u of allImgUrls) pagesSet.add(u);
     }
 
-    const pages = [...pagesSet].sort();
+    const pages = naturalSortUrls(filterChapterPages([...pagesSet]));
     return pages;
   },
 };
@@ -409,7 +438,7 @@ export const asuraScraper: Scraper = {
       if (src) pages.push(src);
     });
 
-    return pages;
+    return naturalSortUrls(filterChapterPages(pages));
   },
 };
 
@@ -594,96 +623,90 @@ export async function scrapeNyxHomepage(): Promise<NyxHomepageData> {
       mostPopular: [],
     };
 
-    $("a[href^='/series/']").each((_, el) => {
-      const href = $(el).attr("href") ?? "";
-      if (!href.startsWith("/series/") || href.includes("chapter")) return;
-      const slug = href.replace("/series/", "");
-      const title = $(el).find("h2, h3, [class*='title'], .text-lg, .text-xl, .font-bold").first().text().trim() || slug.replace(/-/g, " ");
-      const coverUrl = $(el).find("img").first().attr("src") ?? "";
-      const ratingText = $(el).find('[class*="rating"], .text-star, .flex.items-center span').first().text().trim();
-      const rating = parseFloat(ratingText) || 0;
-      const genres: string[] = [];
-      $(el).find('[class*="genre"], .flex-wrap span, .flex-wrap a').each((_, g) => {
-        const gText = $(g).text().trim();
-        if (gText && gText.length < 25 && isNaN(parseFloat(gText))) genres.push(gText);
-      });
-      const desc = $(el).find("p, [class*='desc'], .line-clamp").first().text().trim();
+    const ADULT_RE = /(?:^|\s|\/|_|-)(?:adult|hentai|smut|ecchi|mature|18\+|xxx|porn(?:ographic)?|nsfw)(?:\s|\/|_|-|$)/i;
 
-      if (isAdultContent(title + " " + slug + " " + desc)) return;
-      if (title && !result.featured.find((f) => f.slug === slug)) {
-        result.featured.push({ title, slug, rating, description: desc, genres, coverUrl });
+    function extractSeriesFromLink(el: any): { title: string; slug: string; coverUrl: string; rating: number; description: string; genres: string[] } | null {
+      const href = $(el).attr("href") ?? "";
+      if (!href.startsWith("/series/") || href.includes("chapter")) return null;
+      const slug = href.replace("/series/", "").replace(/\/$/, "");
+      if (!slug) return null;
+
+      const $el = $(el);
+      const title = $el.find("h2, h3, h4").first().text().trim()
+        || $el.find("img").first().attr("alt")?.trim()
+        || $el.attr("title")?.trim()
+        || slug.replace(/-/g, " ");
+      const coverUrl = $el.find("img").first().attr("src") ?? "";
+      const allText = $el.text();
+      const ratingMatch = allText.match(/(\d+(?:\.\d+)?)/);
+      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
+      const description = $el.find("p").first().text().trim();
+      const genres: string[] = [];
+
+      if (ADULT_RE.test(title + " " + slug + " " + description)) return null;
+      return { title, slug, coverUrl, rating, description, genres };
+    }
+
+    // Featured — from the swiper slider
+    $("a[href^='/series/']").each((_, el) => {
+      const item = extractSeriesFromLink(el);
+      if (item && item.title && !result.featured.find((f) => f.slug === item.slug)) {
+        result.featured.push(item);
       }
     });
+    result.featured = result.featured.filter((f) => f.description.length > 50).slice(0, 6);
 
-    result.featured = result.featured.filter((f) => f.description.length > 100).slice(0, 6);
-
-    const popularSection = $("body").text();
-    const popularStart = popularSection.indexOf("Popular Today");
-    if (popularStart >= 0) {
+    // Popular Today section
+    const bodyText = $("body").text();
+    if (bodyText.includes("Popular Today") || bodyText.includes("Popular")) {
       $("a[href^='/series/']").each((_, el) => {
-        const href = $(el).attr("href") ?? "";
-        if (!href.startsWith("/series/") || href.includes("chapter")) return;
-        const slug = href.replace("/series/", "");
-        const title = $(el).find("h2, h3, [class*='title']").first().text().trim() || $(el).attr("title") || "";
-        const coverUrl = $(el).find("img").first().attr("src") ?? "";
-        const allText = $(el).text();
-        const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
-        const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-        const isNovel = /novel/i.test(allText);
-        if (/(?:^|\s|\/|_|-)(?:adult|hentai|smut|ecchi|mature|18\+|xxx|porn(?:ographic)?|nsfw)(?:\s|\/|_|-|$)/i.test(allText)) return;
-        const type = isNovel ? "Novel" : "Manhwa";
-        if (title && slug && !result.popular.find((p) => p.slug === slug)) {
-          result.popular.push({ title, slug, rating, coverUrl, type });
+        const item = extractSeriesFromLink(el);
+        if (item && item.title && !result.featured.find((f) => f.slug === item.slug) && !result.popular.find((p) => p.slug === item.slug)) {
+          const isNovel = /novel/i.test(item.title);
+          result.popular.push({ ...item, type: isNovel ? "Novel" : "Manhwa" });
         }
+      });
+      result.popular = result.popular.slice(0, 12);
+    }
+
+    // If no popular found from section, fill from featured overflow
+    if (result.popular.length === 0) {
+      result.featured.slice(0, 6).forEach((f) => {
+        const isNovel = /novel/i.test(f.title);
+        result.popular.push({ ...f, type: isNovel ? "Novel" : "Manhwa" });
       });
     }
 
-    $("a[href^='/series/']").each((_, el) => {
+    // Latest releases — links that contain chapter- in the href
+    $("a[href*='chapter-']").each((_, el) => {
       const href = $(el).attr("href") ?? "";
-      if (href.includes("chapter-")) {
-        const match = href.match(/\/series\/(.+)\/chapter-(.+)/);
-        if (match) {
-          const slug = match[1];
-          const chapterNum = match[2];
-          const mainLink = $(el).closest("div").parent().find("a[href='/series/" + slug + "']");
-          const title = mainLink.first().text().trim() || $(el).closest("[class*='flex']").find("a[href^='/series/']").first().text().trim() || slug.replace(/-/g, " ");
-          if (isAdultContent(title + " " + slug)) return;
-          const item = result.latestReleases.find((r) => r.slug === slug);
-          const rawTime = $(el).find("span, .text-xs, .text-sm").last().text().trim() || "";
-          const time = rawTime
-            .replace(/[^\x20-\x7E]/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
-          const isNew = !!$(el).find('[class*="new"], [class*="New"]').length
-            || time.toLowerCase() === "new"
-            || time.toLowerCase().includes("new");
-          if (item) {
-            if (!item.chapters.find((c) => c.number === chapterNum)) {
-              item.chapters.push({ number: chapterNum, slug: `chapter-${chapterNum}`, time, isNew });
-            }
-          } else {
-            const cover = $(el).closest("div").find("img").first().attr("src") ?? "";
-            let cleanTime = time;
-            if (!cleanTime || cleanTime.length < 2 || /[^\x20-\x7E]/.test(cleanTime)) {
-              const parentText = $(el).closest("[class*='flex'], [class*='row'], div").text();
-              const dateMatch = parentText.match(/(\d+\s*(?:day|hour|minute|week|month|year)s?\s*ago|just\s*now|new)/i);
-              cleanTime = dateMatch ? dateMatch[0] : "New";
-            }
-            const isNovel = /novel/i.test(title + " " + $(el).closest("div").text());
-            result.latestReleases.push({
-              title: title || slug.replace(/-/g, " "),
-              slug,
-              rating: 0,
-              coverUrl: cover,
-              status: "Ongoing",
-              type: isNovel ? "Novel" : "Manhwa",
-              chapters: [{ number: chapterNum, slug: `chapter-${chapterNum}`, time: cleanTime, isNew }],
-            });
-          }
+      const match = href.match(/\/series\/(.+?)\/chapter-(.+)/);
+      if (!match) return;
+      const slug = match[1];
+      const chapterNum = match[2];
+      if (isAdultContent(slug)) return;
+
+      const rawTime = $(el).find("span").last().text().trim() || "";
+      const time = rawTime.replace(/[^\x20-\x7E]/g, "").replace(/\s+/g, " ").trim();
+
+      const item = result.latestReleases.find((r) => r.slug === slug);
+      if (item) {
+        if (!item.chapters.find((c) => c.number === chapterNum)) {
+          item.chapters.push({ number: chapterNum, slug: `chapter-${chapterNum}`, time: time || "New", isNew: /new/i.test(time) });
         }
+      } else {
+        const title = slug.replace(/-/g, " ");
+        result.latestReleases.push({
+          title,
+          slug,
+          rating: 0,
+          coverUrl: "",
+          status: "Ongoing",
+          type: "Manhwa",
+          chapters: [{ number: chapterNum, slug: `chapter-${chapterNum}`, time: time || "New", isNew: /new/i.test(time) }],
+        });
       }
     });
-
     result.latestReleases = result.latestReleases.slice(0, 30);
 
     return result;
@@ -784,7 +807,7 @@ export async function scrapeAsuraHomepage(): Promise<NyxHomepageData> {
 // ============ COMIX.TO HOMEPAGE ============
 export async function scrapeComixHomepage(): Promise<NyxHomepageData> {
   try {
-    const { data } = await fetchWithRetry<string>("https://comix.to");
+    const { data } = await fetchWithRetry<string>("https://comix.to/home");
     const $ = cheerio.load(data);
 
     const result: NyxHomepageData = {
@@ -795,22 +818,26 @@ export async function scrapeComixHomepage(): Promise<NyxHomepageData> {
       mostPopular: [],
     };
 
+    const ADULT_RE = /(?:^|\s|\/|_|-)(?:adult|hentai|smut|ecchi|mature|18\+|xxx|porn(?:ographic)?|nsfw)(?:\s|\/|_|-|$)/i;
+
     $("a[href*='/series/']").each((_, el) => {
       const href = $(el).attr("href") ?? "";
       if (href.includes("chapter")) return;
-      const slug = href.replace("/series/", "").replace(/^\//, "");
+      const slug = href.replace(/^\/series\//, "").replace(/\/$/, "");
       if (!slug) return;
-      const title = $(el).find("h2, h3, [class*='title'], .font-bold").first().text().trim() || slug.replace(/-/g, " ");
+      const title = $(el).find("h2, h3, h4").first().text().trim()
+        || $(el).find("img").first().attr("alt")?.trim()
+        || slug.replace(/-/g, " ");
       const coverUrl = $(el).find("img").first().attr("src") ?? "";
       const allText = $(el).text();
-      const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
+      const ratingMatch = allText.match(/(\d+(?:\.\d+)?)/);
       const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-      const desc = $(el).find("p, [class*='desc'], .line-clamp").first().text().trim();
+      const desc = $(el).find("p").first().text().trim();
       const isNovel = /novel/i.test(allText);
 
-      if (isAdultContent(title + " " + slug + " " + desc)) return;
+      if (ADULT_RE.test(title + " " + slug + " " + desc)) return;
 
-      if (title && desc.length > 50 && !result.featured.find((f) => f.slug === slug)) {
+      if (title && !result.featured.find((f) => f.slug === slug)) {
         result.featured.push({
           title, slug, rating, description: desc, genres: [], coverUrl,
           source: "comixto", sourceUrl: "https://comix.to",
@@ -847,22 +874,26 @@ export async function scrapeHivetoonsHomepage(): Promise<NyxHomepageData> {
       mostPopular: [],
     };
 
+    const ADULT_RE = /(?:^|\s|\/|_|-)(?:adult|hentai|smut|ecchi|mature|18\+|xxx|porn(?:ographic)?|nsfw)(?:\s|\/|_|-|$)/i;
+
     $("a[href*='/series/']").each((_, el) => {
       const href = $(el).attr("href") ?? "";
       if (href.includes("chapter")) return;
-      const slug = href.replace("/series/", "").replace(/^\//, "");
+      const slug = href.replace(/^\/series\//, "").replace(/\/$/, "");
       if (!slug) return;
-      const title = $(el).find("h2, h3, [class*='title'], .font-bold").first().text().trim() || slug.replace(/-/g, " ");
+      const title = $(el).find("h2, h3, h4").first().text().trim()
+        || $(el).find("img").first().attr("alt")?.trim()
+        || slug.replace(/-/g, " ");
       const coverUrl = $(el).find("img").first().attr("src") ?? "";
       const allText = $(el).text();
-      const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
+      const ratingMatch = allText.match(/(\d+(?:\.\d+)?)/);
       const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-      const desc = $(el).find("p, [class*='desc'], .line-clamp").first().text().trim();
+      const desc = $(el).find("p").first().text().trim();
       const isNovel = /novel/i.test(allText);
 
-      if (isAdultContent(title + " " + slug + " " + desc)) return;
+      if (ADULT_RE.test(title + " " + slug + " " + desc)) return;
 
-      if (title && desc.length > 50 && !result.featured.find((f) => f.slug === slug)) {
+      if (title && !result.featured.find((f) => f.slug === slug)) {
         result.featured.push({
           title, slug, rating, description: desc, genres: [], coverUrl,
           source: "hivetoons", sourceUrl: "https://hivetoons.org",
@@ -892,47 +923,55 @@ export async function scrapeMantaHomepage(): Promise<NyxHomepageData> {
   };
 
   try {
-    const { data } = await fetchWithRetry<string>("https://manta.net/en");
-    const $ = cheerio.load(data);
+    const { data: html } = await fetchWithRetry<string>("https://manta.net/en");
+    const $ = cheerio.load(html);
 
-    $("a[href*='/comics/'], a[href*='/series/'], a[href*='/title/']").each((_, el) => {
+    // Manta is an SPA — extract buildId to try the Next.js data API
+    const buildMatch = html.match(/"buildId":"([^"]+)"/);
+    const buildId = buildMatch?.[1];
+
+    if (buildId) {
+      // Try the comics listing page data endpoint
+      for (const page of ["/comics", "/en/comics"]) {
+        try {
+          const { data: pageData } = await client.get(
+            `https://manta.net/_next/data/${buildId}${page}.json`,
+            { timeout: 15000 },
+          );
+          const comics: Array<{ slug?: string; title?: string; name?: string; thumbnail?: string; coverImage?: string; description?: string }> =
+            pageData?.pageProps?.comics ?? pageData?.pageProps?.items ?? pageData?.pageProps?.seriesList ?? pageData?.pageProps?.homeData?.comics ?? [];
+          for (const c of comics.slice(0, 20)) {
+            const slug = c.slug ?? "";
+            const title = c.title ?? c.name ?? slug.replace(/-/g, " ");
+            if (!slug || !title) continue;
+            result.featured.push({ title, slug, coverUrl: c.thumbnail ?? c.coverImage ?? "", rating: 0, description: c.description ?? "", genres: [] });
+          }
+          if (result.featured.length > 0) break;
+        } catch { /* try next path */ }
+      }
+    }
+
+    // Fallback: extract from any /comics/ links in SSR HTML
+    $("a[href*='/comics/'], a[href*='/title/']").each((_, el) => {
       const href = $(el).attr("href") ?? "";
       if (href.includes("chapter")) return;
-      const slugMatch = href.match(/\/(?:comics|series|title)\/([^/]+)/);
+      const slugMatch = href.match(/\/(?:comics|title)\/([^/?]+)/);
       if (!slugMatch) return;
       const slug = slugMatch[1];
-      const title = $(el).find("h2, h3, [class*='title'], .font-bold, img").first().attr("alt")
-        ?? $(el).find("h2, h3, [class*='title'], .font-bold").first().text().trim()
+      const title = $(el).find("img").first().attr("alt")
+        ?? $(el).find("h2, h3, h4").first().text().trim()
         ?? slug.replace(/-/g, " ");
       const coverUrl = $(el).find("img").first().attr("src") ?? "";
-      const allText = $(el).text();
-      const ratingMatch = allText.match(/(\d+(\.\d+)?)/);
-      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-      const desc = $(el).find("p, [class*='desc'], .line-clamp").first().text().trim();
-      const isNovel = /novel/i.test(allText);
-
-      if (isAdultContent(title + " " + slug + " " + desc)) return;
-
-      if (title && desc.length > 50 && !result.featured.find((f) => f.slug === slug)) {
-        result.featured.push({
-          title, slug, rating, description: desc, genres: [], coverUrl,
-          source: "manta", sourceUrl: "https://manta.net",
-        });
-      } else if (title && !result.popular.find((p) => p.slug === slug)) {
-        result.popular.push({
-          title, slug, rating, coverUrl, type: isNovel ? "Novel" : "Manhwa",
-          source: "manta", sourceUrl: "https://manta.net",
-        });
+      if (title && !result.featured.find((f) => f.slug === slug) && !result.popular.find((p) => p.slug === slug)) {
+        result.popular.push({ title, slug, coverUrl, rating: 0, type: "Manhwa" });
       }
     });
-
-    result.featured = result.featured.slice(0, 6);
-    result.popular = result.popular.slice(0, 12);
   } catch (error) {
     console.error("[scrapeMantaHomepage] Failed:", error instanceof Error ? error.message : String(error));
-    // silently fail
   }
 
+  result.featured = result.featured.slice(0, 6);
+  result.popular = result.popular.slice(0, 12);
   return result;
 }
 
@@ -1097,7 +1136,7 @@ export const comixToScraper: Scraper = {
       for (const u of urls) pagesSet.add(u);
     }
 
-    return [...pagesSet];
+    return naturalSortUrls(filterChapterPages([...pagesSet]));
   },
 };
 
@@ -1190,7 +1229,7 @@ export const mantaScraper: Scraper = {
       for (const u of urls) pagesSet.add(u);
     }
 
-    return [...pagesSet];
+    return naturalSortUrls(filterChapterPages([...pagesSet]));
   },
 };
 
@@ -1275,6 +1314,6 @@ export const hivetoonsScraper: Scraper = {
       const src = $(el).attr("src");
       if (src) pages.push(src);
     });
-    return pages;
+    return naturalSortUrls(filterChapterPages(pages));
   },
 };
