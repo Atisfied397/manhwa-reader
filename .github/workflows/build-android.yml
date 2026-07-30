@@ -52,6 +52,11 @@ jobs:
           console.log('Updated URL to: ' + url);
           "
 
+      - name: Create www directory for Capacitor
+        run: |
+          mkdir -p www
+          echo '<!DOCTYPE html><html><head><title>Manhwa Reader</title></head><body></body></html>' > www/index.html
+
       - name: Sync Capacitor
         run: npx cap sync android
 
