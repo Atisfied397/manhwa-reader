@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Manhwa Reader - Read Comics, Manga, Manhua & Manhwa Online",
   description: "Immerse Yourself in Comics, Manga, Manhua, and Manhwa — Manhwa Reader: Where Stories Come to Life.",
   other: { "keywords": "manhwa, manga, webtoon, comics, novels, read online" },
+  icons: { icon: "/favicon.svg" },
   openGraph: {
     title: "Manhwa Reader - Read Comics, Manga, Manhua & Manhwa Online",
     description: "Immerse Yourself in Comics, Manga, Manhua, and Manhwa.",

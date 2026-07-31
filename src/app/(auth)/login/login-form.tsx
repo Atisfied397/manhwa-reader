@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import Logo from "@/components/Logo";
 
 type Mode = "signin" | "signup" | "reset";
 
@@ -271,9 +272,7 @@ export default function LoginForm() {
       <div className="relative w-full max-w-[400px] animate-fade-in">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-indigo-600 text-2xl font-bold text-white shadow-lg shadow-primary/30">
-            M
-          </div>
+          <Logo className="h-16 w-16" />
           <h1 className="mt-4 text-2xl font-bold text-white">Manhwa Reader</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {isSignUp ? "Create your free account" : "Welcome back"}

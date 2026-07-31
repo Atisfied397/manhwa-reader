@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { useState } from "react";
 import SearchBar from "./SearchBar";
+import Logo from "./Logo";
 
 const ADMIN_EMAIL = "satyamkamat4@gmail.com";
 
@@ -26,9 +27,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm overflow-hidden">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white">
-            M
-          </div>
+          <Logo className="h-8 w-8" />
           <span className="hidden font-bold text-white sm:block">Manhwa Reader</span>
         </Link>
 
