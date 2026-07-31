@@ -260,7 +260,9 @@ export default function LoginForm() {
   const handleGoogle = async () => {
     setError(null);
     try {
+      sessionStorage.setItem("authRedirectTo", redirect);
       await signInWithGoogle();
+      // For popup flow, redirect here; for redirect flow, AuthProvider handles it
       router.replace(redirect);
     } catch (err) {
       setError(friendlyError(err));

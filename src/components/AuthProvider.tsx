@@ -60,7 +60,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     // Handle redirect result from Firebase (native app flow)
-    getRedirectResult(auth).catch(() => {});
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          const redirectTo = sessionStorage.getItem("authRedirectTo") || "/";
+          sessionStorage.removeItem("authRedirectTo");
+          window.location.replace(redirectTo);
+        }
+      })
+      .catch(() => {});
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
