@@ -17,6 +17,18 @@ const firebaseErrorMap: Record<string, string> = {
   "auth/missing-credential": "Please enter your email and password.",
   "auth/too-many-requests": "Too many attempts. Please try again later.",
   "auth/invalid-credential": "Incorrect email or password. Please try again.",
+  "auth/network-request-failed": "Network error. Please check your connection.",
+  "auth/popup-blocked": "Popup blocked. Please allow popups and try again.",
+  "auth/popup-closed-by-user": "Sign-in cancelled. Please try again.",
+  "auth/operation-not-allowed": "This sign-in method is not enabled. Please use email/password.",
+  "auth/user-disabled": "This account has been disabled.",
+  "auth/account-exists-with-different-credential": "An account already exists with this email using a different sign-in method.",
+  "auth/unauthorized-continue-uri": "Domain not authorized. Contact support.",
+  "auth/invalid-continue-uri": "Invalid configuration. Contact support.",
+  "auth/missing-continue-uri": "Missing configuration. Contact support.",
+  "auth/invalid-api-key": "Invalid API key. Contact support.",
+  "auth/app-not-authorized": "App not authorized. Check Firebase console settings.",
+  "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase console.",
 };
 
 function getErrorCode(err: unknown): string {
@@ -28,8 +40,9 @@ function getErrorCode(err: unknown): string {
 
 function friendlyError(err: unknown): string {
   const code = getErrorCode(err);
+  console.error("[Auth Error]", code, err);
   if (code.startsWith("auth/")) {
-    return firebaseErrorMap[code] ?? "Something went wrong. Please try again.";
+    return firebaseErrorMap[code] ?? `Error: ${code}`;
   }
   if (err instanceof Error) return err.message;
   return "Something went wrong. Please try again.";
