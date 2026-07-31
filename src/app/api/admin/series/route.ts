@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { series, chapters, chapterPages, genres, seriesGenres } from "@/lib/schema";
-import { eq, sql, desc, like, or } from "drizzle-orm";
+import { series } from "@/lib/schema";
+import { eq, sql, like, or } from "drizzle-orm";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

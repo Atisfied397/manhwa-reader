@@ -30,16 +30,14 @@ export default function DownloadButton({
 }: DownloadButtonProps) {
   const [status, setStatus] = useState<DownloadStatus>("idle");
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
-  const [isNative, setIsNative] = useState(false);
-
-  useEffect(() => {
+  const [isNative] = useState(() => {
     try {
       // @ts-expect-error - Capacitor runtime check
-      setIsNative(window?.Capacitor?.isNativePlatform?.() === true);
+      return typeof window !== "undefined" && window?.Capacitor?.isNativePlatform?.() === true;
     } catch {
-      setIsNative(false);
+      return false;
     }
-  }, []);
+  });
 
   useEffect(() => {
     if (!isNative) return;

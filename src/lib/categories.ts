@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { series, genres, seriesGenres, chapters } from "./schema";
+import { series, genres, seriesGenres } from "./schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface CategoryInfo {
@@ -78,7 +78,7 @@ export async function getCategoryGenreSeries(
     const genreId = genreResult[0].id;
 
     // Get series for this genre
-    let query = db
+    const query = db
       .select({
         title: series.title,
         slug: series.slug,

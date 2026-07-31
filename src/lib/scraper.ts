@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import crypto from "crypto";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import type { ScrapedSeries, ScrapedChapter } from "./types";
@@ -625,7 +626,7 @@ export async function scrapeNyxHomepage(): Promise<NyxHomepageData> {
 
     const ADULT_RE = /(?:^|\s|\/|_|-)(?:adult|hentai|smut|ecchi|mature|18\+|xxx|porn(?:ographic)?|nsfw)(?:\s|\/|_|-|$)/i;
 
-    function extractSeriesFromLink(el: any): { title: string; slug: string; coverUrl: string; rating: number; description: string; genres: string[] } | null {
+    function extractSeriesFromLink(el: Element): { title: string; slug: string; coverUrl: string; rating: number; description: string; genres: string[] } | null {
       const href = $(el).attr("href") ?? "";
       if (!href.startsWith("/series/") || href.includes("chapter")) return null;
       const slug = href.replace("/series/", "").replace(/\/$/, "");

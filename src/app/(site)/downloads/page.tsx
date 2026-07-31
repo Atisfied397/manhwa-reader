@@ -12,25 +12,25 @@ import {
 export default function DownloadsPage() {
   const [downloads, setDownloads] = useState<DownloadedChapter[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isNative, setIsNative] = useState(false);
-
-  useEffect(() => {
+  const [isNative] = useState(() => {
     try {
       // @ts-expect-error - Capacitor runtime check
-      const native = window?.Capacitor?.isNativePlatform?.() === true;
-      setIsNative(native);
-      if (native) {
-        getDownloadedChapters().then((d) => {
-          setDownloads(d.sort((a, b) => b.downloadedAt - a.downloadedAt));
-          setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
+      return typeof window !== "undefined" && window?.Capacitor?.isNativePlatform?.() === true;
     } catch {
-      setLoading(false);
+      return false;
     }
-  }, []);
+  });
+
+  useEffect(() => {
+    if (isNative) {
+      getDownloadedChapters().then((d) => {
+        setDownloads(d.sort((a, b) => b.downloadedAt - a.downloadedAt));
+        setLoading(false);
+      });
+    } else {
+      Promise.resolve().then(() => setLoading(false));
+    }
+  }, [isNative]);
 
   const handleDelete = async (seriesSlug: string, chapterSlug: string) => {
     await deleteChapter(seriesSlug, chapterSlug);

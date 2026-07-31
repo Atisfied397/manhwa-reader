@@ -75,7 +75,7 @@ function DetailRow({ label, value, copyable = false }: DetailRowProps) {
 }
 
 export default function ProfilePage() {
-  const { user, loading, signInWithGoogle, logout, isAdmin } = useAuth();
+  const { user, loading, logout, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -125,12 +125,12 @@ export default function ProfilePage() {
               history, and access your bookmarks and downloads.
             </p>
           </div>
-          <button
-            onClick={signInWithGoogle}
+          <Link
+            href="/login"
             className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
           >
-            Sign In with Google
-          </button>
+            Sign In
+          </Link>
           <Link
             href="/"
             className="text-sm text-primary hover:text-primary-hover"

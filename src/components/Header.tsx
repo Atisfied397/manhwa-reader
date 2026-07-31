@@ -8,7 +8,7 @@ import SearchBar from "./SearchBar";
 const ADMIN_EMAIL = "satyamkamat4@gmail.com";
 
 export default function Header() {
-  const { user, signInWithGoogle, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
@@ -85,15 +85,16 @@ export default function Header() {
               </button>
             </div>
           ) : (
-            <button
-              onClick={signInWithGoogle}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground"
+            <Link
+              href="/login"
+              className="flex h-8 items-center gap-1 rounded-lg bg-primary/20 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/30"
               aria-label="Sign in"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-            </button>
+              <span className="hidden sm:inline">Sign In</span>
+            </Link>
           )}
 
           <button

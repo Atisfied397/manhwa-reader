@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -25,7 +24,7 @@ function PagesContent() {
   const [selectedChapter, setSelectedChapter] = useState(chapterSlug);
   const [pages, setPages] = useState<PageItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState<number | null>(null);
+  const [, setSaving] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -33,22 +32,40 @@ function PagesContent() {
   }, []);
 
   useEffect(() => {
-    if (!selectedSeries) { setChapterList([]); return; }
-    fetch(`/api/admin/chapters?series=${selectedSeries}`).then(r => r.json()).then(d => setChapterList(d.chapters || []));
+    let active = true;
+    if (selectedSeries) {
+      fetch(`/api/admin/chapters?series=${selectedSeries}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (active) setChapterList(d.chapters || []);
+        })
+        .catch(() => {});
+    } else {
+      Promise.resolve().then(() => {
+        if (active) setChapterList([]);
+      });
+    }
+    return () => {
+      active = false;
+    };
   }, [selectedSeries]);
 
-  const fetchPages = useCallback(async () => {
+  useEffect(() => {
     if (!selectedSeries || !selectedChapter) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/pages?series=${selectedSeries}&chapter=${selectedChapter}`);
-      const data = await res.json();
-      setPages(data.pages || []);
-    } catch {}
-    setLoading(false);
+    let active = true;
+    fetch(`/api/admin/pages?series=${selectedSeries}&chapter=${selectedChapter}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (active) setPages(data.pages || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [selectedSeries, selectedChapter]);
-
-  useEffect(() => { fetchPages(); }, [fetchPages]);
 
   const movePage = async (id: number, direction: "up" | "down") => {
     const idx = pages.findIndex((p) => p.id === id);

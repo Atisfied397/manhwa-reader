@@ -31,7 +31,23 @@ export default function AdminSeriesPage() {
     setLoading(false);
   }, [search]);
 
-  useEffect(() => { fetchDbSeries(); }, [fetchDbSeries]);
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/admin/series?q=${encodeURIComponent(search)}&limit=200`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (active) {
+          setDbSeries(data.series || []);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [search]);
 
   const toggleField = async (id: number, field: "isFeatured" | "isHidden", value: boolean) => {
     setSaving(id);

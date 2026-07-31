@@ -13,7 +13,7 @@ interface Bookmark {
 }
 
 export default function BookmarksPage() {
-  const { user, signInWithGoogle } = useAuth();
+  const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,12 +71,12 @@ export default function BookmarksPage() {
             Sign in to save your favorite series and keep track of what
             you&apos;re reading.
           </p>
-          <button
-            onClick={signInWithGoogle}
+          <Link
+            href="/login"
             className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
           >
-            Sign In with Google
-          </button>
+            Sign In
+          </Link>
           <Link
             href="/"
             className="mt-6 text-sm text-primary hover:text-primary-hover"

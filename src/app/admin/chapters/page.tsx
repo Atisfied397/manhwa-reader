@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -34,18 +34,22 @@ function ChaptersContent() {
     fetch("/api/admin/series?limit=500").then(r => r.json()).then(d => setSeriesList(d.series || []));
   }, []);
 
-  const fetchChapters = useCallback(async () => {
+  useEffect(() => {
     if (!selectedSeries) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/chapters?series=${selectedSeries}`);
-      const data = await res.json();
-      setChapters(data.chapters || []);
-    } catch {}
-    setLoading(false);
+    let active = true;
+    fetch(`/api/admin/chapters?series=${selectedSeries}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (active) setChapters(data.chapters || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [selectedSeries]);
-
-  useEffect(() => { if (selectedSeries) fetchChapters(); }, [fetchChapters]);
 
   const moveChapter = async (id: number, direction: "up" | "down") => {
     const idx = chapters.findIndex((c) => c.id === id);

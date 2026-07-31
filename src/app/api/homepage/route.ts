@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { series, chapters, chapterPages, genres, seriesGenres } from "@/lib/schema";
-import { eq, desc, and, ne, sql } from "drizzle-orm";
+import { series, chapters, genres, seriesGenres } from "@/lib/schema";
+import { eq, desc, and } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 

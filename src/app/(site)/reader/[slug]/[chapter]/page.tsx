@@ -2,7 +2,6 @@
 
 import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import DownloadButton from "@/components/DownloadButton";
 import { getChapterLocalPages } from "@/lib/download-manager";
 
@@ -26,7 +25,6 @@ export default function ReaderPage({ params }: ReaderPageProps) {
 
 function ReaderPageInner({ params }: ReaderPageProps) {
   const { slug, chapter } = use(params);
-  const searchParams = useSearchParams();
   const chapterNum = chapter.replace("chapter-", "");
   const [pages, setPages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);

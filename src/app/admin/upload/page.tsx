@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
 
 interface ChapterDraft {
   id: string;
@@ -56,7 +55,6 @@ function ImageUpload({ label, value, folder, onChange }: { label: string; value:
 }
 
 export default function UploadSeriesPage() {
-  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState("");
 
