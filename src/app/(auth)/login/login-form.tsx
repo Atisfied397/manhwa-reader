@@ -28,7 +28,6 @@ const firebaseErrorMap: Record<string, string> = {
   "auth/missing-continue-uri": "Missing configuration. Contact support.",
   "auth/invalid-api-key": "Invalid API key. Contact support.",
   "auth/app-not-authorized": "App not authorized. Check Firebase console settings.",
-  "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase console.",
 };
 
 function getErrorCode(err: unknown): string {
