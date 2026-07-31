@@ -3,26 +3,26 @@
     android:height="108dp"
     android:viewportHeight="108"
     android:viewportWidth="108">
-    <!-- Book shape (white, slightly transparent for depth) -->
+    <!-- White book shape (safe zone: centered, with padding for background to show) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M28,30 L80,30 Q86,30 86,36 L86,78 Q86,84 80,84 L28,84 Q22,84 22,78 L22,36 Q22,30 28,30 Z" />
+        android:pathData="M24,26 L84,26 Q91,26 91,33 L91,82 Q91,89 84,89 L24,89 Q17,89 17,82 L17,33 Q17,26 24,26 Z" />
     <!-- Spine line -->
     <path
         android:fillColor="#6366f1"
-        android:pathData="M53,30 L55,30 L55,84 L53,84 Z" />
+        android:pathData="M53,26 L55,26 L55,89 L53,89 Z" />
     <!-- M left stroke -->
     <path
-        android:fillColor="#6366f1"
-        android:pathData="M32,74 L32,44 L44,62 L53,44"
+        android:fillColor="#00000000"
+        android:pathData="M30,74 L30,38 L40,52 L53,38"
         android:strokeColor="#6366f1"
         android:strokeWidth="3.5"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
     <!-- M right stroke -->
     <path
-        android:fillColor="#6366f1"
-        android:pathData="M55,44 L64,62 L76,44 L76,74"
+        android:fillColor="#00000000"
+        android:pathData="M55,38 L68,52 L78,38 L78,74"
         android:strokeColor="#6366f1"
         android:strokeWidth="3.5"
         android:strokeLineCap="round"
